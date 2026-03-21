@@ -22,7 +22,7 @@ export type DocType = (typeof DOC_TYPES)[number];
 export const STATUS_TRANSITIONS: Record<TaskStatus, readonly TaskStatus[]> = {
   backlog: ["open"],
   open: ["in-progress", "blocked"],
-  "in-progress": ["review", "blocked", "open"],
+  "in-progress": ["done", "review", "blocked", "open"],
   review: ["done", "in-progress"],
   blocked: ["open"],
   done: [],

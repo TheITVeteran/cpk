@@ -138,7 +138,7 @@ tasks.post("/tasks/:id/done", async (c) => {
   const input = TaskCompleteSchema.parse(body);
 
   if (existing.status === "in-progress") {
-    // Agent completing: move to review
+    // Agent completing: straight to done, triggers dependency resolution
     const agent = c.req.query("agent") ?? existing.assignee ?? "unknown";
     const task = db.completeTask(projectId, existing.id, agent, input.notes);
     if (!task) throw new BadRequestError("Cannot complete task");
@@ -146,7 +146,7 @@ tasks.post("/tasks/:id/done", async (c) => {
   }
 
   if (existing.status === "review") {
-    // Reviewer verifying: move to done
+    // Approving a reviewed task: move to done
     const task = db.markTaskDone(projectId, existing.id);
     if (!task) throw new BadRequestError("Cannot mark task as done");
     return c.json({ data: task });

@@ -423,7 +423,8 @@ export function updateTask(projectId: string, taskId: string, input: TaskUpdateI
 }
 
 /**
- * Complete a task: status → review. Append notes. Recalculate downstream deps.
+ * Complete a task: in-progress → done. Append notes. Trigger dependency resolution.
+ * Review is optional — agents go straight to done. Human can move to review manually if needed.
  */
 export function completeTask(projectId: string, taskId: string, agentName: string, notes?: string): Task | undefined {
   const db = getDb(projectId);
@@ -444,7 +445,7 @@ export function completeTask(projectId: string, taskId: string, agentName: strin
     }
 
     db.prepare(
-      `UPDATE tasks SET status = 'review', notes = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE tasks SET status = 'done', notes = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`
     ).run(JSON.stringify(updatedNotes), taskId);
 
     // Free up the agent
@@ -452,7 +453,11 @@ export function completeTask(projectId: string, taskId: string, agentName: strin
       `UPDATE agents SET status = 'idle', current_task_id = NULL WHERE project_id = ? AND name = ?`
     ).run(projectId, agentName);
 
-    logEventInternal(projectId, "task_complete", { notes }, taskId, agentName);
+    const taskNumber = existing["task_number"] as string;
+    logEventInternal(projectId, "task_done", { notes, task_number: taskNumber }, taskId, agentName);
+
+    // Recalculate deps — downstream tasks may now be unblocked
+    recalculateDependents(projectId, taskNumber);
 
     return db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as Record<string, unknown>;
   })();
@@ -462,6 +467,7 @@ export function completeTask(projectId: string, taskId: string, agentName: strin
 
 /**
  * Mark task as done (from review). Trigger dependency recalculation.
+ * Used when a task was manually moved to review and is now approved.
  */
 export function markTaskDone(projectId: string, taskId: string): Task | undefined {
   const db = getDb(projectId);

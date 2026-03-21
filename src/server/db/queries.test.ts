@@ -187,7 +187,6 @@ describe("queries", () => {
 
       db.pickupTask(projectId, "dev");
       db.completeTask(projectId, db.getTask(projectId, "T-001")!.id, "dev");
-      db.markTaskDone(projectId, db.getTask(projectId, "T-001")!.id);
 
       const updated = db.getTask(projectId, "T-002");
       expect(updated?.status).toBe("open");
@@ -201,7 +200,6 @@ describe("queries", () => {
 
       db.pickupTask(projectId, "dev");
       db.completeTask(projectId, db.getTask(projectId, "T-001")!.id, "dev");
-      db.markTaskDone(projectId, db.getTask(projectId, "T-001")!.id);
 
       const t3 = db.getTask(projectId, "T-003");
       expect(t3?.status).toBe("backlog");
@@ -221,7 +219,7 @@ describe("queries", () => {
       db.pickupTask(projectId, "dev");
       const completed = db.completeTask(projectId, t.id, "dev", "Implemented the feature");
 
-      expect(completed?.status).toBe("review");
+      expect(completed?.status).toBe("done");
       expect(completed?.notes).toContain("Implemented the feature");
     });
 
