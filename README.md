@@ -8,6 +8,8 @@ Two interfaces to the same backend:
 
 Dumb server, smart agents. No LLM on the server. Agents do all planning and decomposition. The server stores state and enforces concurrency.
 
+![codepakt dashboard](dashboard.png)
+
 ## Install
 
 ```bash
