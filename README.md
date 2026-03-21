@@ -31,14 +31,11 @@ cpk init --path ./my-project --prd ./PRD.md
 # Add tasks
 cpk task add --title "Set up auth" --epic "Auth" --priority high
 
-# Register an agent
-cpk agent register --name backend-dev --capabilities "typescript,api"
-
-# Agent picks up work (atomic, with capability matching)
+# Agent picks up work (atomic, no registration needed)
 cpk task pickup --agent backend-dev
 
 # Mark done
-cpk task done <task-id> --notes "Implemented JWT auth"
+cpk task done <task-id> --agent backend-dev --notes "Implemented JWT auth"
 
 # Open the dashboard
 open http://localhost:41920
@@ -68,18 +65,17 @@ cpk task add --title "..." [--epic "..." --priority high --capabilities "ts,api"
 cpk task add --batch tasks.json    # Bulk create
 cpk task list [--epic "Auth"]      # List (with optional epic filter)
 cpk task show <id>                 # Task details
-cpk task pickup [--agent <name>]   # Atomic claim with capability matching
-cpk task done <id> --notes "..."   # Complete
-cpk task block <id> --reason "..." # Mark blocked
+cpk task pickup --agent <name>      # Atomic claim (no registration needed)
+cpk task pickup --agent <n> --id T-001  # Claim specific task
+cpk task done <id> --agent <name> --notes "..."  # Complete
+cpk task block <id> --agent <name> --reason "..." # Mark blocked
 cpk task unblock <id>              # Unblock
 cpk task mine --agent <name>       # My assigned tasks
 ```
 
 ### Agents
 ```bash
-cpk agent register --name <n> [--capabilities "..." --owns "src/api" --provider claude]
-cpk agent list
-cpk agent status <name>
+cpk agent list             # List agents (auto-populated from interactions)
 ```
 
 ### Knowledge Base

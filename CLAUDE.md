@@ -81,7 +81,7 @@ cli/
 │   │       ├── server.ts         # cpk server start/stop/status/logs
 │   │       ├── init.ts           # cpk init [--prd]
 │   │       ├── task.ts           # cpk task add/pickup/done/block/mine/list/show
-│   │       ├── agent.ts          # cpk agent register/list/status
+│   │       ├── agent.ts          # cpk agent list
 │   │       ├── board.ts          # cpk board status
 │   │       ├── docs.ts           # cpk docs write/read/search/list
 │   │       ├── generate.ts       # cpk generate (AGENTS.md + CLAUDE.md)
@@ -150,7 +150,7 @@ cpk task block <id> --reason   # Mark blocked
 cpk task list --epic "Auth"    # Filter by epic
 cpk docs search "query"        # Search KB
 cpk docs write --type decision # Write to KB
-cpk agent register --name dev  # Register agent
+cpk agent list                 # List agents (auto-populated)
 cpk generate                   # Generate .codepakt/AGENTS.md + .codepakt/CLAUDE.md
 cpk agents-md generate         # Alias for cpk generate
 cpk board status               # Board health
