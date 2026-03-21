@@ -22,20 +22,20 @@ Requires Node 20+. macOS and Linux only.
 # Start the server (daemon, port 41920)
 cpk server start
 
-# Create a project
-cpk init --path ./my-project
+# Initialize a project in the current directory
+cpk init --name my-project
 
-# Or create from a PRD (agent reads it, creates tasks)
-cpk init --path ./my-project --prd ./PRD.md
+# Or initialize from a PRD (stores it in the knowledge base)
+cpk init --name my-project --prd ./PRD.md
 
 # Add tasks
-cpk task add --title "Set up auth" --epic "Auth" --priority high
+cpk task add --title "Set up auth" --epic "Auth" --priority P0
 
 # Agent picks up work (atomic, no registration needed)
-cpk task pickup --agent backend-dev
+cpk task pickup --agent backend
 
-# Mark done
-cpk task done <task-id> --agent backend-dev --notes "Implemented JWT auth"
+# Mark done (moves to review — human approves from dashboard)
+cpk task done T-001 --agent backend --notes "Implemented JWT auth"
 
 # Open the dashboard
 open http://localhost:41920
@@ -45,32 +45,46 @@ open http://localhost:41920
 
 ### Server
 ```bash
-cpk server start         # Start daemon (port 41920)
-cpk server stop          # Stop daemon
-cpk server status        # Check if running
-cpk server logs          # Last 50 lines of server log
-cpk server logs -f       # Follow logs in real time
-cpk server logs -n 200   # Last 200 lines
+cpk server start             # Start daemon (port 41920)
+cpk server start --port 8080 # Custom port
+cpk server stop              # Stop daemon
+cpk server status            # Check if running
+cpk server logs              # Last 50 lines of server log
+cpk server logs -f           # Follow logs in real time
+cpk server logs -n 200       # Last 200 lines
 ```
 
-### Projects
+### Init
 ```bash
-cpk init --path <dir>              # Create project
-cpk init --path <dir> --prd <file> # Create from PRD
+cpk init                          # Initialize project (uses directory name)
+cpk init --name my-app            # Initialize with custom name
+cpk init --name my-app --prd PRD.md  # Initialize + store PRD in knowledge base
 ```
 
 ### Tasks
 ```bash
-cpk task add --title "..." [--epic "..." --priority high --capabilities "ts,api"]
-cpk task add --batch tasks.json    # Bulk create
-cpk task list [--epic "Auth"]      # List (with optional epic filter)
-cpk task show <id>                 # Task details
-cpk task pickup --agent <name>      # Atomic claim (no registration needed)
-cpk task pickup --agent <n> --id T-001  # Claim specific task
-cpk task done <id> --agent <name> --notes "..."  # Complete
-cpk task block <id> --agent <name> --reason "..." # Mark blocked
-cpk task unblock <id>              # Unblock
-cpk task mine --agent <name>       # My assigned tasks
+cpk task add --title "..." --priority P1       # Create task (P0, P1, P2)
+cpk task add --title "..." --depends-on T-001  # With dependency
+cpk task add --title "..." --verify "pnpm test" --epic "Auth"
+cpk task add --batch tasks.json                # Bulk create from JSON
+
+cpk task list                          # List all tasks
+cpk task list --status open            # Filter by status
+cpk task list --assignee backend       # Filter by agent
+cpk task list --epic "Auth"            # Filter by epic
+
+cpk task show T-001                    # Full task details
+cpk task update T-001 --status open    # Update status (any → any)
+cpk task update T-001 --priority P0    # Update priority
+cpk task update T-001 --assignee claude  # Reassign
+
+cpk task pickup --agent backend        # Claim highest-priority available task
+cpk task pickup --agent backend --id T-003  # Claim specific task
+cpk task mine --agent backend          # My in-progress + review tasks
+
+cpk task done T-001 --agent backend --notes "..."  # Complete (in-progress → review)
+cpk task block T-001 --agent backend --reason "..." # Mark blocked
+cpk task unblock T-001                 # Unblock (blocked → open)
 ```
 
 ### Agents
@@ -80,22 +94,53 @@ cpk agent list             # List agents (auto-populated from interactions)
 
 ### Knowledge Base
 ```bash
-cpk docs write --title "..." --content "..." [--type decision --section architecture]
-cpk docs search "query"
-cpk docs list
-cpk docs read <id>
+cpk docs write --type learning --title "..." --body "..."  # Create doc (type required)
+cpk docs write --type decision --title "..." --body "..." --tags "auth,jwt"
+cpk docs search "query"            # Full-text search
+cpk docs search "auth" --type reference  # Filter by type
+cpk docs list                      # List all docs
+cpk docs list --type decision      # Filter by type
+cpk docs read <id>                 # Read full document
 ```
 
 ### Board & Generation
 ```bash
-cpk board status       # Board health summary
-cpk generate           # Generate .codepakt/AGENTS.md + .codepakt/CLAUDE.md
-cpk agents-md generate # Alias for cpk generate (backward compat)
+cpk board status           # Board health summary
+cpk generate               # Generate .codepakt/AGENTS.md + .codepakt/CLAUDE.md
+cpk agents-md generate     # Alias for cpk generate (backward compat)
 ```
+
+### Config
+```bash
+cpk config show                            # Show current config
+cpk config set url http://localhost:8080   # Point at different server
+cpk config set project_id proj_abc123      # Switch project
+```
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `CPK_AGENT` | Agent name. Alternative to `--agent` flag. |
+| `CPK_PORT` | Override default server port (41920). |
+
+## Task Lifecycle
+
+```
+backlog → open → in-progress → review → done
+                     │
+                     ▼
+                  blocked → open
+```
+
+- `cpk task done` moves `in-progress → review` (not straight to done)
+- Dependencies resolve when a task reaches **review** — the pipeline keeps moving
+- `review → done` is the human approval step (from dashboard or `cpk task update`)
+- Status transitions are fully permissive via `cpk task update`
 
 ## Architecture
 
-Single npm package. No Docker required for default setup.
+Single npm package. No Docker required.
 
 ```
 codepakt
@@ -108,8 +153,8 @@ codepakt
 
 **Key design choices:**
 - Atomic task pickup via `BEGIN IMMEDIATE` transactions — no race conditions
-- Capability matching happens inside the transaction
-- Per-project databases at `.codepakt/data.db` — portable, no shared state
+- No capability matching — capabilities are informational metadata, not enforced
+- Per-project databases at `<project>/.codepakt/data.db` — portable, no shared state
 - Global index at `~/.codepakt/index.json` for project discovery
 - All mutations logged to events table
 
@@ -123,17 +168,17 @@ codepakt
 | `<project>/.codepakt/data.db` | Per-project SQLite database |
 | `<project>/.codepakt/config.json` | Project CLI config (server URL, project ID) |
 | `<project>/.codepakt/AGENTS.md` | Generated agent protocol + roster (committed to git) |
-| `<project>/.codepakt/CLAUDE.md` | Generated Claude Code coordination instructions (committed to git) |
+| `<project>/.codepakt/CLAUDE.md` | Generated Claude Code instructions (committed to git) |
 
 ## Dashboard
 
 The web dashboard serves from the same Hono server at `http://localhost:41920`:
-- Kanban board (open → in-progress → review → done)
+- Kanban board (backlog → open → in-progress → review → done)
 - Blocked tasks section
-- Agent sidebar with status
-- Task detail panel
-- Create task modal
-- Project switcher
+- Collapsible agent sidebar (left side)
+- Task detail panel with notes
+- Drag-and-drop between columns
+- Add task form
 - Dark/light theme
 
 ## Development
