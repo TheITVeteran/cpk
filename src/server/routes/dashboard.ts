@@ -191,6 +191,8 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
 .empty-state code { background: var(--surface); padding: 2px 6px; border-radius: 3px; font-size: 11px; }
 
 /* ===== STATUS COLORS ===== */
+.status-backlog .column-title, .status-backlog .column-count { color: var(--status-backlog); }
+.status-backlog .column-count { background: rgba(72,79,88,0.15); }
 .status-open .column-title, .status-open .column-count { color: var(--status-open); }
 .status-open .column-count { background: rgba(88,166,255,0.15); }
 .status-wip .column-title, .status-wip .column-count { color: var(--status-wip); }
@@ -416,6 +418,7 @@ function renderBoard(tasks, board) {
   }
 
   const statuses = [
+    { key: 'backlog', label: 'Backlog', cls: 'status-backlog' },
     { key: 'open', label: 'Open', cls: 'status-open' },
     { key: 'in-progress', label: 'In Progress', cls: 'status-wip' },
     { key: 'review', label: 'Review', cls: 'status-review' },
