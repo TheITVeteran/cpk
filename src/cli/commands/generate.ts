@@ -24,34 +24,44 @@ function generateAgentsMd(project: Project, agents: Agent[]): string {
 
   lines.push("## Workflow (follow exactly)");
   lines.push("");
-  lines.push("All output is JSON. Parse it, don't display it raw to the user.");
+  lines.push("All output is JSON. Parse it programmatically.");
   lines.push("");
   lines.push("```bash");
-  lines.push("# 1. Check if you have assigned tasks");
+  lines.push("# 1. Check assigned tasks");
   lines.push("cpk task mine --agent <your-name>");
   lines.push("");
-  lines.push("# 2. If no tasks, pick up the next available one");
+  lines.push("# 2. Pick up next available task");
   lines.push("cpk task pickup --agent <your-name>");
   lines.push("");
   lines.push("# 3. Read task details");
-  lines.push("cpk task show <task-number>            # e.g. cpk task show T-001");
+  lines.push("cpk task show T-001");
   lines.push("");
   lines.push("# 4. Do the work");
   lines.push("");
   lines.push("# 5. Mark complete");
-  lines.push('cpk task done <task-number> --agent <your-name> --notes "what you did"');
+  lines.push('cpk task done T-001 --agent <your-name> --notes "what you did"');
   lines.push("");
-  lines.push("# 6. If blocked, report it and move on");
-  lines.push('cpk task block <task-number> --agent <your-name> --reason "why"');
+  lines.push("# 6. If blocked");
+  lines.push('cpk task block T-001 --agent <your-name> --reason "why"');
   lines.push("");
-  lines.push("# 7. Repeat from step 1");
+  lines.push("# 7. Create tasks (command is 'add', NOT 'create')");
+  lines.push('cpk task add --title "Fix bug" --priority P0');
+  lines.push('cpk task add --title "Feature" --priority P1 --epic "Auth" --depends-on T-001');
+  lines.push("");
+  lines.push("# 8. Other useful commands");
+  lines.push("cpk task list                        # All tasks");
+  lines.push("cpk task list --status open           # Filter by status");
+  lines.push("cpk task unblock T-001               # Remove block");
+  lines.push("cpk board status                     # Board health");
+  lines.push('cpk docs search "topic"              # Search knowledge base');
   lines.push("```");
   lines.push("");
 
   lines.push("## Important");
+  lines.push("- Command is `task add` — NOT `task create`");
   lines.push("- `--agent` is required on: `task pickup`, `task done`, `task block`, `task mine`");
-  lines.push("- Alternative: `export CPK_AGENT=<your-name>` to avoid passing `--agent` every time");
-  lines.push("- Every command needs a subcommand: `cpk board status` (not `cpk board`)");
+  lines.push("- Alternative: `export CPK_AGENT=<your-name>` to skip `--agent` each time");
+  lines.push("- Every command needs a subcommand: `cpk board status` (NOT `cpk board`)");
   lines.push("- Server must be running: `cpk server start` (check with `cpk server status`)");
 
   if (agents.length > 0) {
@@ -83,45 +93,74 @@ function generateClaudeMd(project: Project, agents: Agent[]): string {
   lines.push("");
 
   lines.push("## Session Start");
-  lines.push("Run these commands at the start of every session, in order:");
+  lines.push("Run these at the start of every session:");
   lines.push("```bash");
   lines.push("cpk server status                    # Ensure server is running (start with: cpk server start)");
-  lines.push("cpk task mine --agent <your-name>    # Check if you have assigned tasks");
-  lines.push("cpk task list                        # See all tasks on the board");
+  lines.push("cpk task mine --agent <your-name>    # Check assigned tasks");
+  lines.push("cpk task list                        # All tasks on the board");
   lines.push("cpk board status                     # Board health summary");
   lines.push("```");
   lines.push("");
 
-  lines.push("## Pick Up and Complete Work");
+  lines.push("## Complete Command Reference");
+  lines.push("");
+  lines.push("### Create Tasks (command is `add`, NOT `create`)");
   lines.push("```bash");
-  lines.push("# Claim the next available task (highest priority, deps met)");
-  lines.push("cpk task pickup --agent <your-name>");
-  lines.push("");
-  lines.push("# Or claim a specific task");
-  lines.push("cpk task pickup --agent <your-name> --id T-001");
-  lines.push("");
-  lines.push("# Read task details before starting");
-  lines.push("cpk task show T-001");
-  lines.push("");
-  lines.push("# When done — notes are required");
-  lines.push('cpk task done T-001 --agent <your-name> --notes "what you did"');
-  lines.push("");
-  lines.push("# If blocked — reason is required");
-  lines.push('cpk task block T-001 --agent <your-name> --reason "why"');
+  lines.push('cpk task add --title "Fix auth bug" --priority P0');
+  lines.push('cpk task add --title "Build login" --priority P1 --epic "Auth" --depends-on T-001');
+  lines.push('cpk task add --title "Add tests" --description "..." --verify "pnpm test" --acceptance-criteria "All pass"');
+  lines.push("cpk task add --batch tasks.json      # Bulk create from JSON file");
   lines.push("```");
   lines.push("");
 
-  lines.push("## Knowledge Base");
+  lines.push("### List & Inspect Tasks");
   lines.push("```bash");
-  lines.push('cpk docs search "auth"               # Search for relevant docs');
-  lines.push("cpk docs read <doc-id>               # Read a specific doc");
-  lines.push('cpk docs write --type learning --title "..." --body "..."  # Record a learning');
+  lines.push("cpk task list                        # All tasks");
+  lines.push("cpk task list --status open           # Filter: open|in-progress|review|blocked|done|backlog");
+  lines.push('cpk task list --epic "Auth"           # Filter by epic');
+  lines.push("cpk task list --assignee claude       # Filter by agent");
+  lines.push("cpk task show T-001                   # Full details for one task");
+  lines.push("```");
+  lines.push("");
+
+  lines.push("### Work on Tasks (--agent required)");
+  lines.push("```bash");
+  lines.push("cpk task mine --agent <name>          # My assigned tasks");
+  lines.push("cpk task pickup --agent <name>        # Claim next available (highest priority, deps met)");
+  lines.push("cpk task pickup --agent <name> --id T-001  # Claim specific task");
+  lines.push('cpk task done T-001 --agent <name> --notes "what you did"  # Complete');
+  lines.push('cpk task block T-001 --agent <name> --reason "why"         # Block');
+  lines.push("cpk task unblock T-001               # Remove block, return to open");
+  lines.push("```");
+  lines.push("");
+
+  lines.push("### Knowledge Base");
+  lines.push("```bash");
+  lines.push('cpk docs search "auth"               # Search docs');
+  lines.push("cpk docs list                        # List all docs");
+  lines.push("cpk docs read <doc-id>               # Read full doc");
+  lines.push('cpk docs write --type learning --title "..." --body "..."');
+  lines.push("# doc types: operational | decision | reference | learning");
+  lines.push("```");
+  lines.push("");
+
+  lines.push("### Server & Board");
+  lines.push("```bash");
+  lines.push("cpk server start                     # Start daemon (port 41920)");
+  lines.push("cpk server stop                      # Stop daemon");
+  lines.push("cpk server status                    # Check if running");
+  lines.push("cpk server logs                      # Last 50 lines");
+  lines.push("cpk server logs -f                   # Follow in real time");
+  lines.push("cpk board status                     # Task counts + blocked tasks");
+  lines.push("cpk agent list                       # Agents that have interacted");
   lines.push("```");
   lines.push("");
 
   lines.push("## Rules");
+  lines.push("- The command is `task add` — NOT `task create`, NOT `task new`");
   lines.push("- `--agent` is **required** on: `task pickup`, `task done`, `task block`, `task mine`");
-  lines.push("- Alternative: `export CPK_AGENT=<your-name>` to skip passing `--agent` each time");
+  lines.push("- Alternative: `export CPK_AGENT=<name>` to skip `--agent` each time");
+  lines.push("- Every command needs a subcommand: `cpk board status` NOT `cpk board`");
   lines.push("- Dashboard: http://localhost:41920");
 
   if (agents.length > 0) {
