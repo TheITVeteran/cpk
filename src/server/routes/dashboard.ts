@@ -211,6 +211,16 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
 .card.in-progress { border-left-color: var(--status-wip); }
 .card.review { border-left-color: var(--status-review); }
 .card.done { border-left-color: var(--status-done); opacity: 0.7; }
+.card[draggable="true"] { cursor: grab; }
+.card[draggable="true"]:active { cursor: grabbing; opacity: 0.6; }
+.column.drag-over { outline: 2px dashed var(--primary); outline-offset: -2px; border-radius: 4px; }
+.note-form { display: flex; gap: 6px; margin-top: 8px; }
+.note-input { flex: 1; background: var(--surface); border: 1px solid var(--border-subtle);
+  color: var(--text); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-family: inherit; }
+.note-input:focus { outline: none; border-color: var(--primary); }
+.note-submit { background: var(--surface); border: 1px solid var(--border-subtle); color: var(--text-muted);
+  padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+.note-submit:hover { color: var(--text); border-color: var(--border); }
 </style>
 </head>
 <body>
@@ -451,11 +461,11 @@ function renderBoard(tasks, board) {
   columns.innerHTML = allColumns.map(s => {
     const items = tasks.filter(t => t.status === s.key);
     const count = items.length;
-    return '<div class="column ' + s.cls + '">' +
+    return '<div class="column ' + s.cls + '" ondragover="onDragOver(event)" ondrop="onDrop(event,\\'' + s.key + '\\')" ondragleave="onDragLeave(event)">' +
       '<div class="column-header"><div><span class="column-title">' + s.label + '</span>' +
       '<span class="column-count">' + count + '</span></div></div>' +
-      '<div class="column-cards">' +
-      (count === 0 ? '<div style="color:var(--text-muted);font-size:11px;text-align:center;padding:20px;opacity:0.5">No tasks</div>' :
+      '<div class="column-cards" ondragover="onDragOver(event)" ondrop="onDrop(event,\\'' + s.key + '\\')">' +
+      (count === 0 ? '<div class="drop-empty" style="color:var(--text-muted);font-size:11px;text-align:center;padding:20px;opacity:0.5">No tasks</div>' :
         items.map(t => renderCard(t)).join('')) +
       '</div></div>';
   }).join('');
@@ -480,7 +490,7 @@ function renderBoard(tasks, board) {
 function renderCard(t) {
   const pColor = t.priority === 'P0' ? 'var(--priority-p0)' : t.priority === 'P1' ? 'var(--priority-p1)' : 'var(--priority-p2)';
   const pBg = t.priority === 'P0' ? 'rgba(248,81,73,0.1)' : t.priority === 'P1' ? 'rgba(210,153,34,0.1)' : 'rgba(139,149,158,0.1)';
-  return '<div class="card ' + t.status + '" onclick="openDetail(\\'' + t.id + '\\')">' +
+  return '<div class="card ' + t.status + '" draggable="true" ondragstart="onDragStart(event,\\'' + t.id + '\\')" onclick="openDetail(\\'' + t.id + '\\')">' +
     '<div class="card-top"><span class="card-title">' + esc(t.title) + '</span>' +
     '<span class="priority-badge mono" style="color:' + pColor + ';background:' + pBg + '">' + t.priority + '</span></div>' +
     '<div class="card-bottom"><span class="card-id mono">' + t.task_number + '</span>' +
@@ -604,6 +614,11 @@ function renderDetail(t) {
     html += '<div class="detail-row"><div class="detail-label" style="color:var(--status-blocked)">Blocker Reason</div><div class="detail-value" style="color:var(--status-blocked)">' + esc(t.blocker_reason) + '</div></div>';
   }
 
+  // Add note form
+  html += '<div class="detail-row"><div class="detail-label">Add Note</div>';
+  html += '<div class="note-form"><input class="note-input" id="note-input" placeholder="Add a note..." onkeydown="if(event.key===\\'Enter\\'){addNote(\\'' + t.id + '\\');}">';
+  html += '<button class="note-submit" onclick="addNote(\\'' + t.id + '\\')">Add</button></div></div>';
+
   // Actions
   html += '<div class="detail-actions">';
   if (t.status === 'in-progress') html += '<button class="btn btn-primary" onclick="markDone(\\'' + t.id + '\\')">Mark Done</button>';
@@ -626,6 +641,60 @@ async function markBlocked(id) {
 }
 async function markUnblocked(id) {
   try { await api('/tasks/' + id + '/unblock', { method: 'POST', body: '{}' }); await refresh(); } catch(e) { alert(e.message); }
+}
+
+// ===== ADD NOTE =====
+async function addNote(id) {
+  const input = document.getElementById('note-input');
+  const note = input.value.trim();
+  if (!note) return;
+  try {
+    const t = allTasks.find(t => t.id === id);
+    const notes = t ? [...(t.notes || []), note] : [note];
+    await api('/tasks/' + id, { method: 'PATCH', body: JSON.stringify({ notes }) });
+    input.value = '';
+    await refresh();
+  } catch(e) { alert(e.message); }
+}
+
+// ===== DRAG AND DROP =====
+let dragTaskId = null;
+
+function onDragStart(e, id) {
+  dragTaskId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', id);
+  e.target.style.opacity = '0.4';
+  setTimeout(() => { e.target.style.opacity = ''; }, 0);
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const col = e.target.closest('.column');
+  if (col) col.classList.add('drag-over');
+}
+
+function onDragLeave(e) {
+  const col = e.target.closest('.column');
+  if (col && !col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+}
+
+async function onDrop(e, newStatus) {
+  e.preventDefault();
+  const col = e.target.closest('.column');
+  if (col) col.classList.remove('drag-over');
+  if (!dragTaskId) return;
+  const task = allTasks.find(t => t.id === dragTaskId);
+  if (!task || task.status === newStatus) { dragTaskId = null; return; }
+  try {
+    await api('/tasks/' + dragTaskId, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) });
+    dragTaskId = null;
+    await refresh();
+  } catch(e) {
+    dragTaskId = null;
+    alert(e.message || 'Cannot move task to ' + newStatus);
+  }
 }
 
 // ===== CREATE TASK =====
