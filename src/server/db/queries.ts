@@ -423,8 +423,9 @@ export function updateTask(projectId: string, taskId: string, input: TaskUpdateI
 }
 
 /**
- * Complete a task: in-progress → done. Append notes. Trigger dependency resolution.
- * Review is optional — agents go straight to done. Human can move to review manually if needed.
+ * Complete a task: in-progress → review. Append notes. Trigger dependency resolution.
+ * Agent says "I'm done" → task moves to review, deps resolve immediately.
+ * Human approves from dashboard later (review → done) — just bookkeeping, doesn't block the pipeline.
  */
 export function completeTask(projectId: string, taskId: string, agentName: string, notes?: string): Task | undefined {
   const db = getDb(projectId);
@@ -445,7 +446,7 @@ export function completeTask(projectId: string, taskId: string, agentName: strin
     }
 
     db.prepare(
-      `UPDATE tasks SET status = 'done', notes = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`
+      `UPDATE tasks SET status = 'review', notes = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`
     ).run(JSON.stringify(updatedNotes), taskId);
 
     // Free up the agent
@@ -454,9 +455,9 @@ export function completeTask(projectId: string, taskId: string, agentName: strin
     ).run(projectId, agentName);
 
     const taskNumber = existing["task_number"] as string;
-    logEventInternal(projectId, "task_done", { notes, task_number: taskNumber }, taskId, agentName);
+    logEventInternal(projectId, "task_complete", { notes, task_number: taskNumber }, taskId, agentName);
 
-    // Recalculate deps — downstream tasks may now be unblocked
+    // Deps resolve on review — don't block the pipeline waiting for human approval
     recalculateDependents(projectId, taskNumber);
 
     return db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as Record<string, unknown>;
@@ -466,8 +467,8 @@ export function completeTask(projectId: string, taskId: string, agentName: strin
 }
 
 /**
- * Mark task as done (from review). Trigger dependency recalculation.
- * Used when a task was manually moved to review and is now approved.
+ * Mark task as done (from review). Human approval step — bookkeeping only.
+ * Dependencies already resolved when task entered review.
  */
 export function markTaskDone(projectId: string, taskId: string): Task | undefined {
   const db = getDb(projectId);
@@ -480,14 +481,11 @@ export function markTaskDone(projectId: string, taskId: string): Task | undefine
     if (existing["status"] !== "review") return undefined;
 
     db.prepare(
-      `UPDATE tasks SET status = 'done', completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`
+      `UPDATE tasks SET status = 'done', updated_at = datetime('now') WHERE id = ?`
     ).run(taskId);
 
     const taskNumber = existing["task_number"] as string;
-    logEventInternal(projectId, "task_done", { task_number: taskNumber }, taskId);
-
-    // Recalculate deps for all tasks that depend on this one
-    recalculateDependents(projectId, taskNumber);
+    logEventInternal(projectId, "task_approved", { task_number: taskNumber }, taskId);
 
     return db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as Record<string, unknown>;
   })();
@@ -557,7 +555,8 @@ export function unblockTask(projectId: string, taskId: string): Task | undefined
 // ============================================================
 
 /**
- * Check if all dependencies of a task are done.
+ * Check if all dependencies of a task are complete (review or done).
+ * Review counts as complete — deps resolve when the agent finishes, not when the human approves.
  */
 function computeDepsMet(projectId: string, dependsOn: string[]): boolean {
   if (dependsOn.length === 0) return true;
@@ -567,7 +566,7 @@ function computeDepsMet(projectId: string, dependsOn: string[]): boolean {
     const row = db
       .prepare("SELECT status FROM tasks WHERE project_id = ? AND task_number = ?")
       .get(projectId, dep) as { status: string } | undefined;
-    if (!row || row.status !== "done") return false;
+    if (!row || (row.status !== "done" && row.status !== "review")) return false;
   }
   return true;
 }

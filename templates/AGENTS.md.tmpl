@@ -82,13 +82,13 @@ cpk agent list                       # Agents that have interacted
 
 ## Task Lifecycle
 ```
-backlog ──→ open ──→ in-progress ──→ done
+backlog ──→ open ──→ in-progress ──→ review ──→ done
                          ↓
                       blocked ──→ open
 ```
-- `task done` goes **straight to done** (no review gate). Dependencies resolve immediately.
-- `review` is optional — human can move tasks there manually from the dashboard.
-- `backlog` = waiting on dependencies. Auto-transitions to `open` when deps are met.
+- `task done` moves to **review**. Dependencies resolve on review — no pipeline blocking.
+- `review → done` is the human approval step (from dashboard). Bookkeeping only.
+- `backlog` = waiting on dependencies. Auto-transitions to `open` when deps complete (review or done).
 
 ## Rules
 - The command is `task add` — NOT `task create`, NOT `task new`

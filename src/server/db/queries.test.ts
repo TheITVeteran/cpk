@@ -219,7 +219,7 @@ describe("queries", () => {
       db.pickupTask(projectId, "dev");
       const completed = db.completeTask(projectId, t.id, "dev", "Implemented the feature");
 
-      expect(completed?.status).toBe("done");
+      expect(completed?.status).toBe("review");
       expect(completed?.notes).toContain("Implemented the feature");
     });
 
