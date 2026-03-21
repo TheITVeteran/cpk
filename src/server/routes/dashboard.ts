@@ -536,7 +536,7 @@ function renderCoordinationWarning(coordination) {
     return;
   }
   const from = coordination.file_version || 'unknown';
-  msg.textContent = 'Coordination files outdated (v' + from + ' → v' + coordination.cli_version + '). Run:';
+  msg.textContent = 'Coordination files outdated (' + from + ' → ' + coordination.cli_version + '). Run:';
   banner.style.display = 'flex';
 }
 
