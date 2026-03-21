@@ -13,30 +13,46 @@ function generateAgentsMd(project: Project, agents: Agent[]): string {
 
   lines.push("# AGENTS.md");
   lines.push("");
-  lines.push(`## Project: ${project.name}`);
-  if (project.description) {
-    lines.push(project.description);
-  }
+  lines.push(`> Project: **${project.name}** — coordinated via [Codepakt](https://codepakt.com)`);
   lines.push("");
 
-  lines.push("## Setup");
-  lines.push("This project uses [Codepakt](https://codepakt.com) for task coordination.");
+  lines.push("## Prerequisites");
   lines.push("- Install: `npm i -g codepakt`");
-  lines.push("- Server: `cpk server start`");
-  lines.push("- Dashboard: `http://localhost:41920`");
-  lines.push("- Config: `.codepakt/config.json`");
+  lines.push("- Start server: `cpk server start` (runs on port 41920)");
+  lines.push("- Dashboard: http://localhost:41920");
   lines.push("");
 
-  lines.push("## Agent Protocol");
-  lines.push("1. Use `--agent <your-name>` on commands (or `export CPK_AGENT=<your-name>`)");
-  lines.push("2. `cpk task mine` — check existing work");
-  lines.push("3. `cpk task pickup` — claim next available task");
-  lines.push("4. Read task.context_refs for relevant docs: `cpk docs read <id>`");
-  lines.push("5. Do the work");
-  lines.push('6. `cpk task done <id> --notes "what you did"`');
-  lines.push('7. If blocked: `cpk task block <id> --reason "why"`');
-  lines.push('8. If you learned something: `cpk docs write --type learning --title "..." --body "..."`');
-  lines.push("9. Repeat from step 2");
+  lines.push("## Workflow (follow exactly)");
+  lines.push("");
+  lines.push("All output is JSON. Parse it, don't display it raw to the user.");
+  lines.push("");
+  lines.push("```bash");
+  lines.push("# 1. Check if you have assigned tasks");
+  lines.push("cpk task mine --agent <your-name>");
+  lines.push("");
+  lines.push("# 2. If no tasks, pick up the next available one");
+  lines.push("cpk task pickup --agent <your-name>");
+  lines.push("");
+  lines.push("# 3. Read task details");
+  lines.push("cpk task show <task-number>            # e.g. cpk task show T-001");
+  lines.push("");
+  lines.push("# 4. Do the work");
+  lines.push("");
+  lines.push("# 5. Mark complete");
+  lines.push('cpk task done <task-number> --agent <your-name> --notes "what you did"');
+  lines.push("");
+  lines.push("# 6. If blocked, report it and move on");
+  lines.push('cpk task block <task-number> --agent <your-name> --reason "why"');
+  lines.push("");
+  lines.push("# 7. Repeat from step 1");
+  lines.push("```");
+  lines.push("");
+
+  lines.push("## Important");
+  lines.push("- `--agent` is required on: `task pickup`, `task done`, `task block`, `task mine`");
+  lines.push("- Alternative: `export CPK_AGENT=<your-name>` to avoid passing `--agent` every time");
+  lines.push("- Every command needs a subcommand: `cpk board status` (not `cpk board`)");
+  lines.push("- Server must be running: `cpk server start` (check with `cpk server status`)");
 
   if (agents.length > 0) {
     lines.push("");
@@ -59,45 +75,54 @@ function generateClaudeMd(project: Project, agents: Agent[]): string {
 
   lines.push("# Codepakt — Project Coordination");
   lines.push("");
-  lines.push(`This project (**${project.name}**) uses [Codepakt](https://codepakt.com) for task coordination.`);
+  lines.push(`> Project: **${project.name}** — coordinated via [Codepakt](https://codepakt.com)`);
+  lines.push(">");
+  lines.push("> All `cpk` commands output JSON. Parse it programmatically — do not display raw JSON to the user.");
+  lines.push(">");
+  lines.push("> Every command requires a subcommand (e.g. `cpk board status`, not `cpk board`).");
   lines.push("");
 
-  lines.push("## Before Starting Work");
-  lines.push("1. Check your assignments: `cpk task mine`");
-  lines.push("2. If no assignments, pick up work: `cpk task pickup`");
-  lines.push("3. Read task details: `cpk task show <id>`");
-  lines.push("4. Read context_refs for relevant docs: `cpk docs read <id>`");
-  lines.push("");
-
-  lines.push("## While Working");
-  lines.push('- If blocked: `cpk task block <id> --reason "why"`');
-  lines.push('- If you learn something reusable: `cpk docs write --type learning --title "..." --body "..."`');
-  lines.push('- Search KB when stuck: `cpk docs search "<topic>"`');
-  lines.push("- Check board state: `cpk board status`");
-  lines.push("");
-
-  lines.push("## When Done");
-  lines.push('1. `cpk task done <id> --notes "what you did, what changed"`');
-  lines.push("2. Pick up more work: `cpk task pickup`");
-  lines.push("");
-
-  lines.push("## Board Overview");
-  lines.push("- Dashboard: http://localhost:41920");
-  lines.push("- CLI: `cpk board status`");
-  lines.push("- Server logs: `cpk server logs -f`");
-  lines.push("");
-
-  lines.push("## CLI Quick Reference");
+  lines.push("## Session Start");
+  lines.push("Run these commands at the start of every session, in order:");
   lines.push("```bash");
-  lines.push("cpk task mine                        # My assigned tasks");
-  lines.push("cpk task pickup                      # Claim next available task");
-  lines.push('cpk task done <id> --notes "..."     # Complete a task');
-  lines.push('cpk task block <id> --reason "..."   # Mark blocked');
-  lines.push("cpk task list                        # All tasks");
-  lines.push('cpk task list --epic "Auth"           # Filter by epic');
-  lines.push('cpk docs search "query"              # Search knowledge base');
-  lines.push("cpk board status                     # Board health");
+  lines.push("cpk server status                    # Ensure server is running (start with: cpk server start)");
+  lines.push("cpk task mine --agent <your-name>    # Check if you have assigned tasks");
+  lines.push("cpk task list                        # See all tasks on the board");
+  lines.push("cpk board status                     # Board health summary");
   lines.push("```");
+  lines.push("");
+
+  lines.push("## Pick Up and Complete Work");
+  lines.push("```bash");
+  lines.push("# Claim the next available task (highest priority, deps met)");
+  lines.push("cpk task pickup --agent <your-name>");
+  lines.push("");
+  lines.push("# Or claim a specific task");
+  lines.push("cpk task pickup --agent <your-name> --id T-001");
+  lines.push("");
+  lines.push("# Read task details before starting");
+  lines.push("cpk task show T-001");
+  lines.push("");
+  lines.push("# When done — notes are required");
+  lines.push('cpk task done T-001 --agent <your-name> --notes "what you did"');
+  lines.push("");
+  lines.push("# If blocked — reason is required");
+  lines.push('cpk task block T-001 --agent <your-name> --reason "why"');
+  lines.push("```");
+  lines.push("");
+
+  lines.push("## Knowledge Base");
+  lines.push("```bash");
+  lines.push('cpk docs search "auth"               # Search for relevant docs');
+  lines.push("cpk docs read <doc-id>               # Read a specific doc");
+  lines.push('cpk docs write --type learning --title "..." --body "..."  # Record a learning');
+  lines.push("```");
+  lines.push("");
+
+  lines.push("## Rules");
+  lines.push("- `--agent` is **required** on: `task pickup`, `task done`, `task block`, `task mine`");
+  lines.push("- Alternative: `export CPK_AGENT=<your-name>` to skip passing `--agent` each time");
+  lines.push("- Dashboard: http://localhost:41920");
 
   if (agents.length > 0) {
     lines.push("");
