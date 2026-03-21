@@ -1,213 +1,66 @@
 import { Command } from "commander";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { COORDINATION_VERSION_PREFIX, PROJECT_CONFIG_DIR, VERSION } from "../../shared/constants.js";
-import type { Agent, Project } from "../../shared/types.js";
+import type { Agent } from "../../shared/types.js";
 import { createClient, handleError, requireProjectId } from "../helpers.js";
 
+const TEMPLATE_BASE_URL = "https://raw.githubusercontent.com/codepakt/cli/main/templates";
+
 /**
- * Generate .codepakt/AGENTS.md content from project + agent data.
+ * Fetch a template from GitHub. Falls back to bundled template on failure.
  */
-function generateAgentsMd(project: Project, agents: Agent[]): string {
-  const lines: string[] = [];
-
-  lines.push(`${COORDINATION_VERSION_PREFIX} ${VERSION} -->`);
-  lines.push("# AGENTS.md");
-  lines.push("");
-  lines.push(`> Project: **${project.name}** — coordinated via [Codepakt](https://codepakt.com)`);
-  lines.push("");
-
-  lines.push("## Prerequisites");
-  lines.push("- Install: `npm i -g codepakt`");
-  lines.push("- Start server: `cpk server start` (runs on port 41920)");
-  lines.push("- Dashboard: http://localhost:41920");
-  lines.push("");
-
-  lines.push("## Workflow (follow exactly)");
-  lines.push("");
-  lines.push("All output is JSON. Parse it programmatically.");
-  lines.push("");
-  lines.push("```bash");
-  lines.push("# 1. Check assigned tasks");
-  lines.push("cpk task mine --agent <your-name>");
-  lines.push("");
-  lines.push("# 2. Pick up next available task");
-  lines.push("cpk task pickup --agent <your-name>");
-  lines.push("");
-  lines.push("# 3. Read task details");
-  lines.push("cpk task show T-001");
-  lines.push("");
-  lines.push("# 4. Do the work");
-  lines.push("");
-  lines.push("# 5. Mark complete");
-  lines.push('cpk task done T-001 --agent <your-name> --notes "what you did"');
-  lines.push("");
-  lines.push("# 6. If blocked");
-  lines.push('cpk task block T-001 --agent <your-name> --reason "why"');
-  lines.push("");
-  lines.push("# 7. Create tasks (command is 'add', NOT 'create')");
-  lines.push('cpk task add --title "Fix bug" --priority P0');
-  lines.push('cpk task add --title "Feature" --priority P1 --epic "Auth" --depends-on T-001');
-  lines.push("");
-  lines.push("# 8. Update any field directly");
-  lines.push("cpk task update T-001 --status open   # Change status");
-  lines.push("cpk task update T-001 --priority P0   # Change priority");
-  lines.push("cpk task update T-001 --assignee dev  # Reassign");
-  lines.push("");
-  lines.push("# 9. Other useful commands");
-  lines.push("cpk task list                        # All tasks");
-  lines.push("cpk task list --status open           # Filter by status");
-  lines.push("cpk task unblock T-001               # Remove block");
-  lines.push("cpk board status                     # Board health");
-  lines.push('cpk docs search "topic"              # Search knowledge base');
-  lines.push("```");
-  lines.push("");
-
-  lines.push("## Task Lifecycle");
-  lines.push("backlog → open → in-progress → **done** (dependencies resolve immediately)");
-  lines.push("`task done` goes straight to done — no review gate. Review is optional (human-managed).");
-  lines.push("");
-
-  lines.push("## Important");
-  lines.push("- Command is `task add` — NOT `task create`");
-  lines.push("- `--agent` is required on: `task pickup`, `task done`, `task block`, `task mine`");
-  lines.push("- Alternative: `export CPK_AGENT=<your-name>` to skip `--agent` each time");
-  lines.push("- Every command needs a subcommand: `cpk board status` (NOT `cpk board`)");
-  lines.push("- Server must be running: `cpk server start` (check with `cpk server status`)");
-
-  if (agents.length > 0) {
-    lines.push("");
-    lines.push("## Active Agents");
-    for (const agent of agents) {
-      const taskInfo = agent.current_task_id ? `working on ${agent.current_task_id}` : "idle";
-      lines.push(`- **${agent.name}** (${taskInfo})`);
+async function fetchTemplate(filename: string): Promise<string> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`${TEMPLATE_BASE_URL}/${filename}`, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (res.ok) {
+      return await res.text();
     }
+  } catch {
+    // Network failure — fall back to bundled
   }
 
-  lines.push("");
+  // Bundled fallback: walk up from this file to find templates/
+  const __filename = fileURLToPath(import.meta.url);
+  let pkgRoot = dirname(__filename);
+  for (let i = 0; i < 5; i++) {
+    if (existsSync(join(pkgRoot, "package.json"))) break;
+    pkgRoot = dirname(pkgRoot);
+  }
+  const bundledPath = join(pkgRoot, "templates", filename);
+  if (existsSync(bundledPath)) {
+    return readFileSync(bundledPath, "utf-8");
+  }
+
+  throw new Error(`Template not found: ${filename} (tried GitHub + bundled)`);
+}
+
+/**
+ * Build the agents section for interpolation.
+ */
+function buildAgentsSection(agents: Agent[]): string {
+  if (agents.length === 0) return "";
+  const lines = ["## Active Agents"];
+  for (const agent of agents) {
+    const taskInfo = agent.current_task_id ? `working on ${agent.current_task_id}` : "idle";
+    lines.push(`- **${agent.name}** (${taskInfo})`);
+  }
   return lines.join("\n");
 }
 
 /**
- * Generate .codepakt/CLAUDE.md content with coordination instructions.
+ * Interpolate template placeholders with project data.
  */
-function generateClaudeMd(project: Project, agents: Agent[]): string {
-  const lines: string[] = [];
-
-  lines.push(`${COORDINATION_VERSION_PREFIX} ${VERSION} -->`);
-  lines.push("# Codepakt — Project Coordination");
-  lines.push("");
-  lines.push(`> Project: **${project.name}** — coordinated via [Codepakt](https://codepakt.com)`);
-  lines.push(">");
-  lines.push("> All `cpk` commands output JSON. Parse it programmatically — do not display raw JSON to the user.");
-  lines.push(">");
-  lines.push("> Every command requires a subcommand (e.g. `cpk board status`, not `cpk board`).");
-  lines.push("");
-
-  lines.push("## Session Start");
-  lines.push("Run these at the start of every session:");
-  lines.push("```bash");
-  lines.push("cpk server status                    # Ensure server is running (start with: cpk server start)");
-  lines.push("cpk generate                         # Update coordination files to latest CLI version");
-  lines.push("cpk task mine --agent <your-name>    # Check assigned tasks");
-  lines.push("cpk task list                        # All tasks on the board");
-  lines.push("cpk board status                     # Board health summary");
-  lines.push("```");
-  lines.push("");
-
-  lines.push("## Complete Command Reference");
-  lines.push("");
-  lines.push("### Create Tasks (command is `add`, NOT `create`)");
-  lines.push("```bash");
-  lines.push('cpk task add --title "Fix auth bug" --priority P0');
-  lines.push('cpk task add --title "Build login" --priority P1 --epic "Auth" --depends-on T-001');
-  lines.push('cpk task add --title "Add tests" --description "..." --verify "pnpm test" --acceptance-criteria "All pass"');
-  lines.push("cpk task add --batch tasks.json      # Bulk create from JSON file");
-  lines.push("```");
-  lines.push("");
-
-  lines.push("### List & Inspect Tasks");
-  lines.push("```bash");
-  lines.push("cpk task list                        # All tasks");
-  lines.push("cpk task list --status open           # Filter: open|in-progress|review|blocked|done|backlog");
-  lines.push('cpk task list --epic "Auth"           # Filter by epic');
-  lines.push("cpk task list --assignee claude       # Filter by agent");
-  lines.push("cpk task show T-001                   # Full details for one task");
-  lines.push("```");
-  lines.push("");
-
-  lines.push("### Work on Tasks (--agent required)");
-  lines.push("```bash");
-  lines.push("cpk task mine --agent <name>          # My assigned tasks");
-  lines.push("cpk task pickup --agent <name>        # Claim next available (highest priority, deps met)");
-  lines.push("cpk task pickup --agent <name> --id T-001  # Claim specific task");
-  lines.push('cpk task done T-001 --agent <name> --notes "what you did"  # Complete');
-  lines.push('cpk task block T-001 --agent <name> --reason "why"         # Block');
-  lines.push("cpk task unblock T-001               # Remove block, return to open");
-  lines.push("```");
-  lines.push("");
-
-  lines.push("### Update Tasks (change any field)");
-  lines.push("```bash");
-  lines.push("cpk task update T-001 --status open   # Change status directly");
-  lines.push("cpk task update T-001 --priority P0   # Change priority");
-  lines.push("cpk task update T-001 --assignee claude  # Reassign");
-  lines.push('cpk task update T-001 --epic "Auth"   # Set epic');
-  lines.push("# Flags: --status, --priority, --assignee, --epic, --title, --description, --verify");
-  lines.push("```");
-  lines.push("");
-
-  lines.push("### Knowledge Base");
-  lines.push("```bash");
-  lines.push('cpk docs search "auth"               # Search docs');
-  lines.push("cpk docs list                        # List all docs");
-  lines.push("cpk docs read <doc-id>               # Read full doc");
-  lines.push('cpk docs write --type learning --title "..." --body "..."');
-  lines.push("# doc types: operational | decision | reference | learning");
-  lines.push("```");
-  lines.push("");
-
-  lines.push("### Server & Board");
-  lines.push("```bash");
-  lines.push("cpk server start                     # Start daemon (port 41920)");
-  lines.push("cpk server stop                      # Stop daemon");
-  lines.push("cpk server status                    # Check if running");
-  lines.push("cpk server logs                      # Last 50 lines");
-  lines.push("cpk server logs -f                   # Follow in real time");
-  lines.push("cpk board status                     # Task counts + blocked tasks");
-  lines.push("cpk agent list                       # Agents that have interacted");
-  lines.push("```");
-  lines.push("");
-
-  lines.push("## Task Lifecycle");
-  lines.push("```");
-  lines.push("backlog ──→ open ──→ in-progress ──→ done");
-  lines.push("                         ↓");
-  lines.push("                      blocked ──→ open");
-  lines.push("```");
-  lines.push("- `task done` goes **straight to done** (no review gate). Dependencies resolve immediately.");
-  lines.push("- `review` is optional — human can move tasks there manually from the dashboard.");
-  lines.push("- `backlog` = waiting on dependencies. Auto-transitions to `open` when deps are met.");
-  lines.push("");
-
-  lines.push("## Rules");
-  lines.push("- The command is `task add` — NOT `task create`, NOT `task new`");
-  lines.push("- `--agent` is **required** on: `task pickup`, `task done`, `task block`, `task mine`");
-  lines.push("- Alternative: `export CPK_AGENT=<name>` to skip `--agent` each time");
-  lines.push("- Every command needs a subcommand: `cpk board status` NOT `cpk board`");
-  lines.push("- Dashboard: http://localhost:41920");
-
-  if (agents.length > 0) {
-    lines.push("");
-    lines.push("## Active Agents");
-    for (const agent of agents) {
-      const taskInfo = agent.current_task_id ? `working on ${agent.current_task_id}` : "idle";
-      lines.push(`- **${agent.name}** (${taskInfo})`);
-    }
+function interpolate(template: string, vars: Record<string, string>): string {
+  let result = template;
+  for (const [key, value] of Object.entries(vars)) {
+    result = result.replaceAll(`{{${key}}}`, value);
   }
-
-  lines.push("");
-  return lines.join("\n");
+  return result;
 }
 
 /**
@@ -258,7 +111,6 @@ function updateGitignore(projectDir: string): void {
   const gitignorePath = join(projectDir, PROJECT_CONFIG_DIR, ".gitignore");
   const desired = `config.json\n*.db\n*.db-wal\n*.db-shm\n`;
 
-  // Read existing content to check if it needs updating
   if (existsSync(gitignorePath)) {
     const current = readFileSync(gitignorePath, "utf-8");
     if (current === desired) return;
@@ -291,11 +143,23 @@ export async function runGenerate(projectDir?: string): Promise<void> {
     process.exit(1);
   }
 
+  // Fetch templates (GitHub first, bundled fallback)
+  const [agentsTmpl, claudeTmpl] = await Promise.all([
+    fetchTemplate("AGENTS.md.tmpl"),
+    fetchTemplate("CLAUDE.md.tmpl"),
+  ]);
+
+  const vars: Record<string, string> = {
+    VERSION_STAMP: `${COORDINATION_VERSION_PREFIX} ${VERSION} -->`,
+    PROJECT_NAME: project.name,
+    AGENTS_SECTION: buildAgentsSection(agents),
+  };
+
   // Update .gitignore before writing files
   updateGitignore(dir);
 
   // Generate and write AGENTS.md
-  const agentsContent = generateAgentsMd(project, agents);
+  const agentsContent = interpolate(agentsTmpl, vars);
   const agentsRootContent = `<!-- This project uses Codepakt for task coordination. -->\n<!-- See .codepakt/AGENTS.md for the agent protocol and roster. -->\n`;
   const agentsResult = writeGeneratedFile(dir, "AGENTS.md", agentsContent, agentsRootContent);
 
@@ -307,7 +171,7 @@ export async function runGenerate(projectDir?: string): Promise<void> {
   }
 
   // Generate and write CLAUDE.md
-  const claudeContent = generateClaudeMd(project, agents);
+  const claudeContent = interpolate(claudeTmpl, vars);
   const claudeRootContent = `@import .codepakt/CLAUDE.md\n`;
   const claudeResult = writeGeneratedFile(dir, "CLAUDE.md", claudeContent, claudeRootContent);
 

@@ -1,0 +1,61 @@
+{{VERSION_STAMP}}
+# AGENTS.md
+
+> Project: **{{PROJECT_NAME}}** — coordinated via [Codepakt](https://codepakt.com)
+
+## Prerequisites
+- Install: `npm i -g codepakt`
+- Start server: `cpk server start` (runs on port 41920)
+- Dashboard: http://localhost:41920
+
+## Workflow (follow exactly)
+
+All output is JSON. Parse it programmatically.
+
+```bash
+# 1. Check assigned tasks
+cpk task mine --agent <your-name>
+
+# 2. Pick up next available task
+cpk task pickup --agent <your-name>
+
+# 3. Read task details
+cpk task show T-001
+
+# 4. Do the work
+
+# 5. Mark complete
+cpk task done T-001 --agent <your-name> --notes "what you did"
+
+# 6. If blocked
+cpk task block T-001 --agent <your-name> --reason "why"
+
+# 7. Create tasks (command is 'add', NOT 'create')
+cpk task add --title "Fix bug" --priority P0
+cpk task add --title "Feature" --priority P1 --epic "Auth" --depends-on T-001
+
+# 8. Update any field directly
+cpk task update T-001 --status open   # Change status
+cpk task update T-001 --priority P0   # Change priority
+cpk task update T-001 --assignee dev  # Reassign
+
+# 9. Other useful commands
+cpk task list                        # All tasks
+cpk task list --status open           # Filter by status
+cpk task unblock T-001               # Remove block
+cpk board status                     # Board health
+cpk docs search "topic"              # Search knowledge base
+```
+
+## Task Lifecycle
+backlog → open → in-progress → **done** (dependencies resolve immediately)
+`task done` goes straight to done — no review gate. Review is optional (human-managed).
+
+## Important
+- Command is `task add` — NOT `task create`
+- `--agent` is required on: `task pickup`, `task done`, `task block`, `task mine`
+- Alternative: `export CPK_AGENT=<your-name>` to skip `--agent` each time
+- Every command needs a subcommand: `cpk board status` (NOT `cpk board`)
+- Server must be running: `cpk server start` (check with `cpk server status`)
+
+{{AGENTS_SECTION}}
