@@ -57,6 +57,11 @@ function generateAgentsMd(project: Project, agents: Agent[]): string {
   lines.push("```");
   lines.push("");
 
+  lines.push("## Task Lifecycle");
+  lines.push("backlog → open → in-progress → **done** (dependencies resolve immediately)");
+  lines.push("`task done` goes straight to done — no review gate. Review is optional (human-managed).");
+  lines.push("");
+
   lines.push("## Important");
   lines.push("- Command is `task add` — NOT `task create`");
   lines.push("- `--agent` is required on: `task pickup`, `task done`, `task block`, `task mine`");
@@ -154,6 +159,17 @@ function generateClaudeMd(project: Project, agents: Agent[]): string {
   lines.push("cpk board status                     # Task counts + blocked tasks");
   lines.push("cpk agent list                       # Agents that have interacted");
   lines.push("```");
+  lines.push("");
+
+  lines.push("## Task Lifecycle");
+  lines.push("```");
+  lines.push("backlog ──→ open ──→ in-progress ──→ done");
+  lines.push("                         ↓");
+  lines.push("                      blocked ──→ open");
+  lines.push("```");
+  lines.push("- `task done` goes **straight to done** (no review gate). Dependencies resolve immediately.");
+  lines.push("- `review` is optional — human can move tasks there manually from the dashboard.");
+  lines.push("- `backlog` = waiting on dependencies. Auto-transitions to `open` when deps are met.");
   lines.push("");
 
   lines.push("## Rules");

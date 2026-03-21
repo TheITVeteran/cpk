@@ -112,14 +112,10 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
 .blocked-item { display: flex; align-items: center; gap: 8px; font-size: 11px; cursor: pointer; }
 .blocked-item .reason { color: var(--status-blocked); opacity: 0.8; }
 
-/* ===== DONE SECTION ===== */
-.done-section { padding: 6px 12px; background: var(--surface); border-radius: 2px;
-  cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); }
-.done-section:hover { background: var(--card); }
 
 /* ===== AGENT SIDEBAR ===== */
-.sidebar { width: 260px; border-left: 1px solid var(--border-subtle); display: flex; flex-direction: column;
-  padding: 16px; overflow-y: auto; flex-shrink: 0; }
+.sidebar { width: 240px; border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column;
+  padding: 16px; overflow-y: auto; flex-shrink: 0; order: -1; }
 .sidebar-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px;
   color: var(--text-muted); margin-bottom: 12px; }
 .agent-card { background: var(--surface); padding: 10px; border-radius: 4px; margin-bottom: 8px; }
@@ -129,10 +125,6 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
 .agent-status { font-size: 10px; }
 .agent-task { font-size: 10px; padding: 4px 6px; background: var(--bg); border-radius: 2px;
   display: flex; justify-content: space-between; color: var(--text-muted); }
-.fleet-cap { margin-top: auto; padding: 10px; background: var(--bg); border-radius: 4px; }
-.fleet-label { font-size: 10px; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 6px; }
-.fleet-bar { height: 3px; background: var(--surface); border-radius: 2px; overflow: hidden; }
-.fleet-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.3s; }
 
 /* ===== DETAIL PANEL ===== */
 .detail-overlay { position: fixed; top: 0; right: 0; bottom: 0; width: 45%; min-width: 380px; max-width: 560px;
@@ -200,9 +192,14 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
 .status-review .column-title, .status-review .column-count { color: var(--status-review); }
 .status-review .column-count { background: rgba(163,113,247,0.15); }
 
+.status-done .column-title, .status-done .column-count { color: var(--status-done); }
+.status-done .column-count { background: rgba(63,185,80,0.15); }
+
+.card.backlog { border-left-color: var(--status-backlog); }
 .card.open { border-left-color: var(--status-open); }
 .card.in-progress { border-left-color: var(--status-wip); }
 .card.review { border-left-color: var(--status-review); }
+.card.done { border-left-color: var(--status-done); opacity: 0.7; }
 </style>
 </head>
 <body>
@@ -233,18 +230,12 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
       <div class="blocked-header">Blocked Issues</div>
       <div id="blocked-list"></div>
     </div>
-    <!-- DONE SECTION -->
-    <div class="done-section" id="done-section"></div>
   </div>
 
   <!-- AGENT SIDEBAR -->
   <div class="sidebar">
     <div class="sidebar-title">Agents</div>
     <div id="agent-list"></div>
-    <div class="fleet-cap" id="fleet-cap">
-      <div class="fleet-label"><span>Fleet Capacity</span><span id="fleet-pct">0%</span></div>
-      <div class="fleet-bar"><div class="fleet-fill" id="fleet-fill"></div></div>
-    </div>
   </div>
 </div>
 
@@ -423,8 +414,9 @@ function renderBoard(tasks, board) {
     { key: 'open', label: 'Open', cls: 'status-open' },
     { key: 'in-progress', label: 'In Progress', cls: 'status-wip' },
     { key: 'review', label: 'Review', cls: 'status-review' },
+    { key: 'done', label: 'Done', cls: 'status-done' },
   ];
-  const excludeFromColumns = new Set(['blocked', 'done']);
+  const excludeFromColumns = new Set(['blocked']);
   const knownKeys = new Set(knownColumns.map(s => s.key).concat([...excludeFromColumns]));
 
   // Catch any unknown statuses so no task disappears silently
@@ -458,15 +450,6 @@ function renderBoard(tasks, board) {
     ).join('');
   }
 
-  // Done
-  const done = tasks.filter(t => t.status === 'done');
-  const doneEl = document.getElementById('done-section');
-  if (done.length === 0) { doneEl.style.display = 'none'; }
-  else {
-    doneEl.style.display = 'flex';
-    doneEl.innerHTML = '<span style="color:var(--status-done)">&#10003;</span> Done (' + done.length + ')' +
-      '<span style="margin-left:auto;font-size:10px">' + done.map(t => t.task_number).join(', ') + '</span>';
-  }
 }
 
 function renderCard(t) {
@@ -486,10 +469,8 @@ function renderAgents(agents) {
   const list = document.getElementById('agent-list');
   if (agents.length === 0) {
     list.innerHTML = '<div style="color:var(--text-muted);font-size:11px;text-align:center;padding:20px">No agents yet.<br>Agents appear when they pick up tasks.</div>';
-    document.getElementById('fleet-cap').style.display = 'none';
     return;
   }
-  document.getElementById('fleet-cap').style.display = 'block';
   list.innerHTML = agents.map(a => {
     const dotColor = a.status === 'working' ? 'var(--agent-working)' :
                      a.status === 'offline' ? 'var(--agent-offline)' : 'var(--agent-idle)';
@@ -501,11 +482,6 @@ function renderAgents(agents) {
       (task ? '<div class="agent-task mono"><span style="color:var(--primary)">' + task.task_number + '</span><span>' + esc(task.title).substring(0, 20) + '</span></div>' : '') +
       '</div>';
   }).join('');
-
-  const working = agents.filter(a => a.status === 'working').length;
-  const pct = Math.round((working / agents.length) * 100);
-  document.getElementById('fleet-pct').textContent = pct + '%';
-  document.getElementById('fleet-fill').style.width = pct + '%';
 }
 
 // ===== RENDER STATS =====
@@ -513,8 +489,10 @@ function renderStats(board) {
   const s = board.by_status;
   const stats = document.getElementById('stats');
   const items = [
+    { label: 'backlog', count: s.backlog || 0, color: 'var(--status-backlog)' },
     { label: 'open', count: s.open || 0, color: 'var(--status-open)' },
     { label: 'wip', count: s['in-progress'] || 0, color: 'var(--status-wip)' },
+    { label: 'review', count: s.review || 0, color: 'var(--status-review)' },
     { label: 'blocked', count: s.blocked || 0, color: 'var(--status-blocked)' },
     { label: 'done', count: s.done || 0, color: 'var(--status-done)' },
   ];
