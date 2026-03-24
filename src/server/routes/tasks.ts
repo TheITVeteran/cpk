@@ -147,7 +147,8 @@ tasks.post("/tasks/:id/done", async (c) => {
 
   if (existing.status === "review") {
     // Approving a reviewed task: move to done
-    const task = db.markTaskDone(projectId, existing.id);
+    const reviewer = c.req.query("agent") ?? undefined;
+    const task = db.markTaskDone(projectId, existing.id, reviewer);
     if (!task) throw new BadRequestError("Cannot mark task as done");
     return c.json({ data: task });
   }

@@ -455,7 +455,12 @@ export function completeTask(projectId: string, taskId: string, agentName: strin
     ).run(projectId, agentName);
 
     const taskNumber = existing["task_number"] as string;
-    logEventInternal(projectId, "task_complete", { notes, task_number: taskNumber }, taskId, agentName);
+    const implementer = (existing["assignee"] as string) ?? agentName;
+    const detail: Record<string, unknown> = { notes, task_number: taskNumber };
+    if (agentName !== implementer) {
+      detail.reviewed_by = agentName;
+    }
+    logEventInternal(projectId, "task_complete", detail, taskId, implementer);
 
     // Deps resolve on review — don't block the pipeline waiting for human approval
     recalculateDependents(projectId, taskNumber);
@@ -470,7 +475,7 @@ export function completeTask(projectId: string, taskId: string, agentName: strin
  * Mark task as done (from review). Human approval step — bookkeeping only.
  * Dependencies already resolved when task entered review.
  */
-export function markTaskDone(projectId: string, taskId: string): Task | undefined {
+export function markTaskDone(projectId: string, taskId: string, reviewerAgent?: string): Task | undefined {
   const db = getDb(projectId);
 
   const result = db.transaction(() => {
@@ -485,7 +490,12 @@ export function markTaskDone(projectId: string, taskId: string): Task | undefine
     ).run(taskId);
 
     const taskNumber = existing["task_number"] as string;
-    logEventInternal(projectId, "task_approved", { task_number: taskNumber }, taskId);
+    const implementer = (existing["assignee"] as string) ?? undefined;
+    const detail: Record<string, unknown> = { task_number: taskNumber };
+    if (reviewerAgent) {
+      detail.reviewed_by = reviewerAgent;
+    }
+    logEventInternal(projectId, "task_approved", detail, taskId, implementer);
 
     return db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as Record<string, unknown>;
   })();

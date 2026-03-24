@@ -12,7 +12,7 @@ taskCommand
   .option("-d, --description <desc>", "Task description")
   .option("-p, --priority <p>", "Priority: P0, P1, P2", "P1")
   .option("-e, --epic <epic>", "Epic/feature area name")
-  .option("--capabilities <caps>", "Required capabilities (comma-separated, e.g. code-write,test)")
+  .option("--capabilities <caps>", "Capability tags (informational, not enforced on pickup)")
   .option("--depends-on <deps>", "Comma-separated task numbers (e.g. T-001,T-002)")
   .option("--verify <cmd>", "Verification command")
   .option("--acceptance-criteria <ac...>", "Acceptance criteria (repeatable)")
