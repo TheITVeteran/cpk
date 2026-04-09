@@ -12,7 +12,9 @@ import { dirname, join, resolve } from "node:path";
  *   cpk scan --remove-hook        Remove pre-commit git hook
  */
 import { Command } from "commander";
-import { createClient, handleError, output, requireProjectId } from "../helpers.js";
+import { runIncrementalScan, runScan } from "../../scanner/index.js";
+import { handleError, output, requireProjectId } from "../helpers.js";
+import { openLocalProjectDb } from "../local-db.js";
 
 const HOOK_MARKER_START = "# >>> codepakt hook begin >>>";
 const HOOK_MARKER_END = "# <<< codepakt hook end <<<";
@@ -138,8 +140,10 @@ export const scanCommand = new Command("scan")
           return;
         }
 
-        requireProjectId();
-        const client = createClient();
+        // Code intelligence works against the local SQLite file directly.
+        // No running server required — scan is a standalone operation.
+        const projectId = requireProjectId();
+        const projectPath = openLocalProjectDb(projectId);
 
         const incremental = opts.incremental || opts.changedOnly;
         if (incremental) {
@@ -158,10 +162,10 @@ export const scanCommand = new Command("scan")
             );
             return;
           }
-          const result = await client.scan({ incremental: true, files });
+          const result = await runIncrementalScan(projectId, projectPath, files);
           output(result, opts.human);
         } else {
-          const result = await client.scan();
+          const result = await runScan(projectId, projectPath);
           output(result, opts.human);
         }
       } catch (err) {

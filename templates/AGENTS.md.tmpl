@@ -79,6 +79,10 @@ time and cannot be appended later.
 
 ### Code Intelligence
 **Prefer `cpk code` over grep/glob/Read for discovery. ~200 tokens per query.**
+
+**`cpk scan` and `cpk code` commands work WITHOUT the server running.** They read/write
+the local `.codepakt/data.db` file directly. You do NOT need `cpk server start` for these.
+
 ```bash
 cpk scan                                    # Full scan of the codebase (run once per session or after big changes)
 cpk scan --install-hook                     # Install pre-commit hook for incremental updates
@@ -99,6 +103,7 @@ cpk code dependents --file src/shared/types.ts  # Who imports this file (impact 
 - Before writing a new helper → check if it already exists via `cpk code symbols --name`
 
 If `cpk code summary` shows `files_scanned: 0`, the index is empty — run `cpk scan` first.
+(Task/board commands still need `cpk server start`, but code intelligence does not.)
 
 ### Server & Board
 ```bash

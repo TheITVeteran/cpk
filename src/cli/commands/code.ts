@@ -1,6 +1,9 @@
 /**
  * `cpk code` — query the code intelligence index.
  *
+ * These commands read directly from the local .codepakt/data.db file.
+ * No server daemon required — pure local SQLite reads.
+ *
  * Subcommands:
  *   cpk code symbols [--name X] [--kind function] [--file src/] [--exported]
  *   cpk code imports --file src/foo.ts
@@ -8,7 +11,9 @@
  *   cpk code summary
  */
 import { Command } from "commander";
-import { createClient, handleError, output, requireProjectId } from "../helpers.js";
+import * as codeDb from "../../server/db/code-queries.js";
+import { handleError, output, requireProjectId } from "../helpers.js";
+import { openLocalProjectDb } from "../local-db.js";
 
 export const codeCommand = new Command("code").description("Query the code intelligence index");
 
@@ -31,9 +36,9 @@ codeCommand
       human?: boolean;
     }) => {
       try {
-        requireProjectId();
-        const client = createClient();
-        const results = await client.querySymbols({
+        const projectId = requireProjectId();
+        openLocalProjectDb(projectId);
+        const results = codeDb.querySymbols(projectId, {
           name: opts.name,
           kind: opts.kind,
           file: opts.file,
@@ -54,9 +59,9 @@ codeCommand
   .option("--human", "Human-readable output")
   .action(async (opts: { file: string; human?: boolean }) => {
     try {
-      requireProjectId();
-      const client = createClient();
-      const results = await client.queryCodeImports(opts.file);
+      const projectId = requireProjectId();
+      openLocalProjectDb(projectId);
+      const results = codeDb.queryImports(projectId, opts.file);
       output(results, opts.human);
     } catch (err) {
       handleError(err);
@@ -70,9 +75,9 @@ codeCommand
   .option("--human", "Human-readable output")
   .action(async (opts: { file: string; human?: boolean }) => {
     try {
-      requireProjectId();
-      const client = createClient();
-      const results = await client.queryDependents(opts.file);
+      const projectId = requireProjectId();
+      openLocalProjectDb(projectId);
+      const results = codeDb.queryDependents(projectId, opts.file);
       output(results, opts.human);
     } catch (err) {
       handleError(err);
@@ -85,9 +90,9 @@ codeCommand
   .option("--human", "Human-readable output")
   .action(async (opts: { human?: boolean }) => {
     try {
-      requireProjectId();
-      const client = createClient();
-      const summary = await client.getCodeSummary();
+      const projectId = requireProjectId();
+      openLocalProjectDb(projectId);
+      const summary = codeDb.getCodeSummary(projectId);
       output(summary, opts.human);
     } catch (err) {
       handleError(err);
