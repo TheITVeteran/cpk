@@ -1,10 +1,15 @@
-import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
+import { Hono } from "hono";
 import { DB_FILE, PROJECT_CONFIG_DIR } from "../../shared/constants.js";
 import { ProjectCreateSchema } from "../../shared/schemas.js";
 import { SCHEMA_VERSION, openDatabase } from "../db/index.js";
-import { getProjectEntry, listProjectEntries, registerProject, touchProject } from "../db/project-index.js";
+import {
+  getProjectEntry,
+  listProjectEntries,
+  registerProject,
+  touchProject,
+} from "../db/project-index.js";
 import { BadRequestError, NotFoundError } from "../middleware/error.js";
 
 const projects = new Hono();

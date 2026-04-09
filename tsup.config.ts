@@ -14,7 +14,7 @@ export default defineConfig({
   dts: false,
   sourcemap: true,
   // better-sqlite3 is a native module — cannot be bundled
-  external: ["better-sqlite3"],
+  external: ["better-sqlite3", "web-tree-sitter"],
   banner: {
     js: "// codepakt",
   },

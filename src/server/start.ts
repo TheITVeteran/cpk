@@ -1,10 +1,10 @@
+import { existsSync, mkdirSync } from "node:fs";
 /**
  * Server entry point. Used by:
  * - `pnpm dev` (tsx watch)
  * - Daemon child process (forked by CLI)
  */
 import { serve } from "@hono/node-server";
-import { existsSync, mkdirSync } from "node:fs";
 import { DEFAULT_DATA_DIR, DEFAULT_PORT, resolveDataDir } from "../shared/constants.js";
 import { openDatabase, setProjectResolver } from "./db/index.js";
 import { getProjectEntry } from "./db/project-index.js";

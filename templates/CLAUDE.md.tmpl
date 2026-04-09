@@ -72,6 +72,29 @@ Use `cpk docs write --type learning` to record debugging notes, discoveries, or 
 This is the right place for detailed implementation logs — task notes are set at completion
 time and cannot be appended later.
 
+### Code Intelligence
+**Prefer `cpk code` over grep/glob/Read for discovery. ~200 tokens per query.**
+```bash
+cpk scan                                    # Full scan of the codebase (run once per session or after big changes)
+cpk scan --install-hook                     # Install pre-commit hook for incremental updates
+cpk code summary                            # Project overview: files, symbols, languages
+cpk code symbols --name AuthService         # Find symbol by name (LIKE match)
+cpk code symbols --kind function            # All functions
+cpk code symbols --kind class               # All classes
+cpk code symbols --file src/auth/           # All symbols in a file or directory
+cpk code symbols --exported                 # Only exported symbols
+cpk code imports --file src/auth/guard.ts   # What this file imports
+cpk code dependents --file src/shared/types.ts  # Who imports this file (impact analysis)
+```
+
+**When to use:**
+- Finding where a function/class lives → `cpk code symbols --name X`
+- Understanding what breaks if you change a file → `cpk code dependents --file ...`
+- Orienting in an unfamiliar codebase → `cpk code summary` then `cpk code symbols --exported`
+- Before writing a new helper → check if it already exists via `cpk code symbols --name`
+
+If `cpk code summary` shows `files_scanned: 0`, the index is empty — run `cpk scan` first.
+
 ### Server & Board
 ```bash
 cpk server start                     # Start daemon (port 41920)

@@ -1,8 +1,8 @@
 import { Command } from "commander";
-import { DEFAULT_PORT } from "../../shared/constants.js";
 import { isDaemonRunning, startDaemon, stopDaemon } from "../../server/daemon.js";
-import { getDataDir } from "../config.js";
+import { DEFAULT_PORT } from "../../shared/constants.js";
 import { ApiClient } from "../api-client.js";
+import { getDataDir } from "../config.js";
 
 export const serverCommand = new Command("server").description("Manage the Codepakt server daemon");
 

@@ -5,6 +5,7 @@ import { API_PREFIX } from "../shared/constants.js";
 import { handleError } from "./middleware/error.js";
 import agents from "./routes/agents.js";
 import board from "./routes/board.js";
+import code from "./routes/code.js";
 import dashboard from "./routes/dashboard.js";
 import docs from "./routes/docs.js";
 import events from "./routes/events.js";
@@ -33,6 +34,7 @@ export function createApp(): Hono {
   api.route("/", docs);
   api.route("/", board);
   api.route("/", events);
+  api.route("/", code);
 
   app.route(API_PREFIX, api);
 

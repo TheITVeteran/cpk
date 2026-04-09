@@ -53,9 +53,14 @@ export function warnIfStaleCoordinationFiles(): void {
     const firstLine = readFileSync(claudePath, "utf-8").split("\n")[0] ?? "";
     if (!firstLine.startsWith(COORDINATION_VERSION_PREFIX)) return;
 
-    const fileVersion = firstLine.replace(COORDINATION_VERSION_PREFIX, "").replace("-->", "").trim();
+    const fileVersion = firstLine
+      .replace(COORDINATION_VERSION_PREFIX, "")
+      .replace("-->", "")
+      .trim();
     if (fileVersion !== VERSION) {
-      console.error(`⚠ Coordination files outdated (v${fileVersion} → v${VERSION}). Run: cpk generate`);
+      console.error(
+        `⚠ Coordination files outdated (v${fileVersion} → v${VERSION}). Run: cpk generate`,
+      );
     }
   } catch {
     // Don't block on check failures

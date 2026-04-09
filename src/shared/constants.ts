@@ -15,6 +15,17 @@ export type Priority = (typeof PRIORITIES)[number];
 export const DOC_TYPES = ["operational", "decision", "reference", "learning"] as const;
 export type DocType = (typeof DOC_TYPES)[number];
 
+export const SYMBOL_KINDS = [
+  "function",
+  "class",
+  "interface",
+  "type",
+  "method",
+  "variable",
+] as const;
+
+export const SUPPORTED_LANGUAGES = ["typescript", "javascript", "python", "go"] as const;
+
 /**
  * Valid status transitions.
  * Permissive — the server is a dumb store, the human is the orchestrator.
@@ -39,7 +50,7 @@ export const CONFIG_FILE = "config.json";
 export const PROJECT_CONFIG_DIR = ".codepakt";
 
 export const API_PREFIX = "/api";
-export const VERSION = "0.1.4";
+export const VERSION = "0.2.0";
 export const COORDINATION_VERSION_PREFIX = "<!-- cpk_version:";
 
 /**

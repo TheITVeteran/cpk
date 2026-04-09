@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 /**
  * Database connection management.
  *
@@ -8,10 +10,8 @@
  * For single-project usage (most of v0.1), there's only one connection in the pool.
  */
 import Database from "better-sqlite3";
-import { existsSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 const SCHEMA_SQL = `
 -- schema_version
@@ -90,6 +90,33 @@ CREATE TABLE IF NOT EXISTS docs (
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- symbols (v3: code intelligence)
+-- Functions, classes, interfaces, types, methods, variables extracted from source.
+CREATE TABLE IF NOT EXISTS symbols (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    file TEXT NOT NULL,
+    line INTEGER NOT NULL,
+    exported INTEGER NOT NULL DEFAULT 0,
+    parent TEXT,
+    signature TEXT,
+    metadata TEXT NOT NULL DEFAULT '{}',
+    scanned_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- imports (v3: code intelligence)
+-- File-to-file import relationships for dependency analysis.
+CREATE TABLE IF NOT EXISTS imports (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    importer TEXT NOT NULL,
+    imported TEXT NOT NULL,
+    names TEXT NOT NULL DEFAULT '[]',
+    scanned_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_id, status);
 CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee);
@@ -97,6 +124,12 @@ CREATE INDEX IF NOT EXISTS idx_tasks_deps_met ON tasks(project_id, deps_met);
 CREATE INDEX IF NOT EXISTS idx_events_project ON events(project_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_tasks_epic ON tasks(project_id, epic);
 CREATE INDEX IF NOT EXISTS idx_docs_project_type ON docs(project_id, type);
+CREATE INDEX IF NOT EXISTS idx_symbols_project_name ON symbols(project_id, name);
+CREATE INDEX IF NOT EXISTS idx_symbols_project_kind ON symbols(project_id, kind);
+CREATE INDEX IF NOT EXISTS idx_symbols_project_file ON symbols(project_id, file);
+CREATE INDEX IF NOT EXISTS idx_symbols_exported ON symbols(project_id, exported);
+CREATE INDEX IF NOT EXISTS idx_imports_project_importer ON imports(project_id, importer);
+CREATE INDEX IF NOT EXISTS idx_imports_project_imported ON imports(project_id, imported);
 `;
 
 /**
@@ -118,6 +151,39 @@ function migrateSchema(db: Database.Database, oldVersion: number): void {
           last_seen TEXT NOT NULL DEFAULT (datetime('now')),
           UNIQUE(project_id, name)
       );
+    `);
+  }
+
+  if (oldVersion < 3) {
+    // v2 → v3: Code intelligence tables (non-destructive, purely additive).
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS symbols (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          kind TEXT NOT NULL,
+          file TEXT NOT NULL,
+          line INTEGER NOT NULL,
+          exported INTEGER NOT NULL DEFAULT 0,
+          parent TEXT,
+          signature TEXT,
+          metadata TEXT NOT NULL DEFAULT '{}',
+          scanned_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS imports (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          importer TEXT NOT NULL,
+          imported TEXT NOT NULL,
+          names TEXT NOT NULL DEFAULT '[]',
+          scanned_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_symbols_project_name ON symbols(project_id, name);
+      CREATE INDEX IF NOT EXISTS idx_symbols_project_kind ON symbols(project_id, kind);
+      CREATE INDEX IF NOT EXISTS idx_symbols_project_file ON symbols(project_id, file);
+      CREATE INDEX IF NOT EXISTS idx_symbols_exported ON symbols(project_id, exported);
+      CREATE INDEX IF NOT EXISTS idx_imports_project_importer ON imports(project_id, importer);
+      CREATE INDEX IF NOT EXISTS idx_imports_project_imported ON imports(project_id, imported);
     `);
   }
 

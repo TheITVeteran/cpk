@@ -5,10 +5,15 @@
 import type {
   Agent,
   BoardStatus,
+  CodeImport,
+  CodeSummary,
+  CodeSymbol,
   Doc,
   DocCreateInput,
   Event,
   Project,
+  ScanResult,
+  SymbolQueryInput,
   Task,
   TaskCreateInput,
   TaskUpdateInput,
@@ -42,10 +47,10 @@ export class ApiClient {
     return this.projectId ? `project_id=${this.projectId}` : "";
   }
 
-  private async request<T>(path: string, options?: RequestInit): Promise<T> {
+  private async request<T>(path: string, options?: RequestInit, timeoutMs = 10000): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const res = await fetch(url, {
@@ -72,7 +77,7 @@ export class ApiClient {
     } catch (err) {
       if (err instanceof ApiClientError) throw err;
       if ((err as Error).name === "AbortError") {
-        throw new ApiClientError(0, "timeout", "Request timed out after 10s");
+        throw new ApiClientError(0, "timeout", `Request timed out after ${timeoutMs / 1000}s`);
       }
       throw new ApiClientError(
         0,
@@ -103,7 +108,11 @@ export class ApiClient {
 
   // --- Projects ---
 
-  async createProject(input: { name: string; description?: string; path?: string }): Promise<Project> {
+  async createProject(input: {
+    name: string;
+    description?: string;
+    path?: string;
+  }): Promise<Project> {
     return this.request("/api/projects", {
       method: "POST",
       body: JSON.stringify(input),
@@ -173,10 +182,13 @@ export class ApiClient {
   }
 
   async completeTask(id: string, agentName: string, notes?: string): Promise<Task> {
-    return this.request(`/api/tasks/${id}/done?${this.qs()}&agent=${encodeURIComponent(agentName)}`, {
-      method: "POST",
-      body: JSON.stringify({ notes }),
-    });
+    return this.request(
+      `/api/tasks/${id}/done?${this.qs()}&agent=${encodeURIComponent(agentName)}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ notes }),
+      },
+    );
   }
 
   async blockTask(id: string, reason: string, agentName?: string): Promise<Task> {
@@ -243,5 +255,45 @@ export class ApiClient {
 
   async getDoc(id: string): Promise<Doc> {
     return this.request(`/api/docs/${id}?${this.qs()}`);
+  }
+
+  // --- Code intelligence (v0.2) ---
+
+  async scan(opts?: { incremental?: boolean; files?: string[] }): Promise<ScanResult> {
+    // Scan can take 30-60s for large codebases; use a longer timeout.
+    return this.request(
+      `/api/scan?${this.qs()}`,
+      {
+        method: "POST",
+        body: JSON.stringify(opts ?? {}),
+      },
+      120000,
+    );
+  }
+
+  async querySymbols(filters: SymbolQueryInput & { limit?: number } = {}): Promise<CodeSymbol[]> {
+    const params = new URLSearchParams(this.qs());
+    if (filters.name) params.set("name", filters.name);
+    if (filters.kind) params.set("kind", filters.kind);
+    if (filters.file) params.set("file", filters.file);
+    if (filters.exported !== undefined) params.set("exported", String(filters.exported));
+    if (filters.limit) params.set("limit", String(filters.limit));
+    return this.request(`/api/code/symbols?${params.toString()}`);
+  }
+
+  async queryCodeImports(file: string): Promise<CodeImport[]> {
+    const params = new URLSearchParams(this.qs());
+    params.set("file", file);
+    return this.request(`/api/code/imports?${params.toString()}`);
+  }
+
+  async queryDependents(file: string): Promise<CodeImport[]> {
+    const params = new URLSearchParams(this.qs());
+    params.set("file", file);
+    return this.request(`/api/code/dependents?${params.toString()}`);
+  }
+
+  async getCodeSummary(): Promise<CodeSummary> {
+    return this.request(`/api/code/summary?${this.qs()}`);
   }
 }
