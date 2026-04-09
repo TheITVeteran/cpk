@@ -10,7 +10,12 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DEFAULT_DATA_DIR, DB_FILE, PROJECT_CONFIG_DIR, resolveDataDir } from "../../shared/constants.js";
+import {
+  DB_FILE,
+  DEFAULT_DATA_DIR,
+  PROJECT_CONFIG_DIR,
+  resolveDataDir,
+} from "../../shared/constants.js";
 
 export interface ProjectIndexEntry {
   id: string;
@@ -31,16 +36,12 @@ const INDEX_FILE = "index.json";
 const INDEX_VERSION = 1;
 
 function getIndexPath(): string {
-  const dataDir = resolveDataDir(
-    process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR,
-  );
+  const dataDir = resolveDataDir(process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR);
   return join(dataDir, INDEX_FILE);
 }
 
 function ensureGlobalDir(): string {
-  const dataDir = resolveDataDir(
-    process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR,
-  );
+  const dataDir = resolveDataDir(process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR);
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir, { recursive: true });
   }

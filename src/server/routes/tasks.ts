@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { STATUS_TRANSITIONS } from "../../shared/constants.js";
+import type { TaskStatus } from "../../shared/constants.js";
 import {
   TaskBatchCreateSchema,
   TaskBlockSchema,
@@ -7,8 +9,6 @@ import {
   TaskListQuerySchema,
   TaskPickupSchema,
 } from "../../shared/schemas.js";
-import { STATUS_TRANSITIONS } from "../../shared/constants.js";
-import type { TaskStatus } from "../../shared/constants.js";
 import * as db from "../db/queries.js";
 import { BadRequestError, NotFoundError } from "../middleware/error.js";
 
@@ -90,10 +90,7 @@ tasks.post("/tasks/pickup", async (c) => {
 
   const task = db.pickupTask(projectId, input.agent);
   if (!task) {
-    return c.json(
-      { error: "no_tasks_available", message: "No open tasks available" },
-      404,
-    );
+    return c.json({ error: "no_tasks_available", message: "No open tasks available" }, 404);
   }
 
   return c.json({ data: task });

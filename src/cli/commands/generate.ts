@@ -1,8 +1,12 @@
-import { Command } from "commander";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { COORDINATION_VERSION_PREFIX, PROJECT_CONFIG_DIR, VERSION } from "../../shared/constants.js";
+import { Command } from "commander";
+import {
+  COORDINATION_VERSION_PREFIX,
+  PROJECT_CONFIG_DIR,
+  VERSION,
+} from "../../shared/constants.js";
 import type { Agent } from "../../shared/types.js";
 import { createClient, handleError, requireProjectId } from "../helpers.js";
 
@@ -127,10 +131,7 @@ export async function runGenerate(projectDir?: string): Promise<void> {
   const client = createClient();
   const dir = projectDir ?? process.cwd();
 
-  const [projects, agents] = await Promise.all([
-    client.listProjects(),
-    client.listAgents(),
-  ]);
+  const [projects, agents] = await Promise.all([client.listProjects(), client.listAgents()]);
 
   if (projects.length === 0) {
     console.error("No projects found. Run `cpk init` first.");

@@ -100,6 +100,58 @@ export interface BoardStatus {
   agent_activity: Agent[];
 }
 
+// --- Code intelligence types (v0.2) ---
+
+export type SymbolKind = "function" | "class" | "interface" | "type" | "method" | "variable";
+
+export interface CodeSymbol {
+  id: string;
+  project_id: string;
+  name: string;
+  kind: SymbolKind;
+  file: string;
+  line: number;
+  exported: boolean;
+  parent: string | null;
+  signature: string | null;
+  metadata: Record<string, unknown>;
+  scanned_at: string;
+}
+
+export interface CodeImport {
+  id: string;
+  project_id: string;
+  importer: string;
+  imported: string;
+  names: string[];
+  scanned_at: string;
+}
+
+export interface ScanResult {
+  files_scanned: number;
+  symbols: number;
+  imports: number;
+  duration_ms: number;
+  languages: string[];
+  incremental: boolean;
+}
+
+export interface CodeSummary {
+  files_scanned: number;
+  symbols_count: number;
+  imports_count: number;
+  by_kind: Record<string, number>;
+  by_language: Record<string, number>;
+  last_scan: string | null;
+}
+
+export interface SymbolQueryInput {
+  name?: string;
+  kind?: string;
+  file?: string;
+  exported?: boolean;
+}
+
 // --- Config types ---
 
 export interface ProjectConfig {

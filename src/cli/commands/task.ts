@@ -1,7 +1,13 @@
-import { Command } from "commander";
 import { readFileSync } from "node:fs";
+import { Command } from "commander";
 import type { TaskCreateInput } from "../../shared/types.js";
-import { createClient, handleError, output, requireAgentName, requireProjectId } from "../helpers.js";
+import {
+  createClient,
+  handleError,
+  output,
+  requireAgentName,
+  requireProjectId,
+} from "../helpers.js";
 
 export const taskCommand = new Command("task").description("Manage tasks");
 
@@ -44,7 +50,9 @@ taskCommand
         description: opts.description,
         priority: opts.priority,
         epic: opts.epic,
-        capabilities: opts.capabilities ? opts.capabilities.split(",").map((s: string) => s.trim()) : [],
+        capabilities: opts.capabilities
+          ? opts.capabilities.split(",").map((s: string) => s.trim())
+          : [],
         depends_on: opts.dependsOn ? opts.dependsOn.split(",").map((s: string) => s.trim()) : [],
         verify: opts.verify,
         acceptance_criteria: opts.acceptanceCriteria ?? [],
@@ -94,31 +102,47 @@ taskCommand
   .option("--description <desc>", "Update description")
   .option("--verify <cmd>", "Update verify command")
   .option("--human", "Human-readable output")
-  .action(async (id: string, opts: { status?: string; priority?: string; assignee?: string; epic?: string; title?: string; description?: string; verify?: string; human?: boolean }) => {
-    try {
-      requireProjectId();
-      const client = createClient();
+  .action(
+    async (
+      id: string,
+      opts: {
+        status?: string;
+        priority?: string;
+        assignee?: string;
+        epic?: string;
+        title?: string;
+        description?: string;
+        verify?: string;
+        human?: boolean;
+      },
+    ) => {
+      try {
+        requireProjectId();
+        const client = createClient();
 
-      const updates: Record<string, unknown> = {};
-      if (opts.status !== undefined) updates.status = opts.status;
-      if (opts.priority !== undefined) updates.priority = opts.priority;
-      if (opts.assignee !== undefined) updates.assignee = opts.assignee;
-      if (opts.epic !== undefined) updates.epic = opts.epic;
-      if (opts.title !== undefined) updates.title = opts.title;
-      if (opts.description !== undefined) updates.description = opts.description;
-      if (opts.verify !== undefined) updates.verify = opts.verify;
+        const updates: Record<string, unknown> = {};
+        if (opts.status !== undefined) updates.status = opts.status;
+        if (opts.priority !== undefined) updates.priority = opts.priority;
+        if (opts.assignee !== undefined) updates.assignee = opts.assignee;
+        if (opts.epic !== undefined) updates.epic = opts.epic;
+        if (opts.title !== undefined) updates.title = opts.title;
+        if (opts.description !== undefined) updates.description = opts.description;
+        if (opts.verify !== undefined) updates.verify = opts.verify;
 
-      if (Object.keys(updates).length === 0) {
-        console.error("No fields to update. Use --status, --priority, --assignee, --epic, --title, --description, or --verify.");
-        process.exit(1);
+        if (Object.keys(updates).length === 0) {
+          console.error(
+            "No fields to update. Use --status, --priority, --assignee, --epic, --title, --description, or --verify.",
+          );
+          process.exit(1);
+        }
+
+        const task = await client.updateTask(id, updates);
+        output(task, opts.human);
+      } catch (err) {
+        handleError(err);
       }
-
-      const task = await client.updateTask(id, updates);
-      output(task, opts.human);
-    } catch (err) {
-      handleError(err);
-    }
-  });
+    },
+  );
 
 taskCommand
   .command("show <id>")

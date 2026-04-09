@@ -6,7 +6,13 @@ import { fork } from "node:child_process";
 import { existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_DATA_DIR, DEFAULT_PORT, LOG_FILE, PID_FILE, resolveDataDir } from "../shared/constants.js";
+import {
+  DEFAULT_DATA_DIR,
+  DEFAULT_PORT,
+  LOG_FILE,
+  PID_FILE,
+  resolveDataDir,
+} from "../shared/constants.js";
 
 function getDataDir(): string {
   return resolveDataDir(process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR);

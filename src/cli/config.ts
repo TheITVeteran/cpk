@@ -4,7 +4,13 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CONFIG_FILE, DEFAULT_DATA_DIR, DEFAULT_PORT, PROJECT_CONFIG_DIR, resolveDataDir } from "../shared/constants.js";
+import {
+  CONFIG_FILE,
+  DEFAULT_DATA_DIR,
+  DEFAULT_PORT,
+  PROJECT_CONFIG_DIR,
+  resolveDataDir,
+} from "../shared/constants.js";
 import type { ProjectConfig } from "../shared/types.js";
 
 /**

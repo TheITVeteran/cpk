@@ -1,5 +1,5 @@
-import { Command } from "commander";
 import { basename, resolve } from "node:path";
+import { Command } from "commander";
 import { saveConfig } from "../config.js";
 import { createClient, handleError } from "../helpers.js";
 import { runGenerate } from "./generate.js";
@@ -59,11 +59,11 @@ export const initCommand = new Command("init")
       console.log("");
       console.log("Next steps:");
       if (opts.prd) {
-        console.log('  Ask your agent to set up the board:');
+        console.log("  Ask your agent to set up the board:");
         console.log('    "Read the PRD with `cpk docs search prd` and decompose it');
         console.log('     into tasks using `cpk task add`. Follow the Board Setup Guide."');
       } else {
-        console.log("  cpk task add --title \"First task\" --priority P0");
+        console.log('  cpk task add --title "First task" --priority P0');
       }
     } catch (err) {
       handleError(err);
